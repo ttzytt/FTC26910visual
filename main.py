@@ -1,12 +1,8 @@
 import cv2
 import numpy as np
-from dataclasses import dataclass, field
-from typing import List, Tuple
 from src.color_def import *
 from src.detector import ColorBlockDetector
 from src.visualizer import BlockVisualizer
-
-# ---------- Main Loop ----------
 
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)

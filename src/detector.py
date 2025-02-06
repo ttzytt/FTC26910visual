@@ -2,6 +2,17 @@ import cv2
 import numpy as np
 from .color_def import *
 from .block import Block
+from typing import List, TypedDict
+
+class VisualizationResults(TypedDict, total=False):
+    """Defines the structure of the dictionary returned by visualize()."""
+    Final_Detection: np.ndarray
+    Avg_HSV_Debug: np.ndarray
+    original: np.ndarray
+    preprocessed: np.ndarray
+    hsv_space: np.ndarray
+    combined_mask: np.ndarray
+
 
 class ColorBlockDetector:
     """
@@ -32,11 +43,11 @@ class ColorBlockDetector:
         self.std_threshold_hsv = (3, 50, 50)
 
         # Storage for debug images (intermediate steps)
-        self._debug_images = {}
+        self._debug_images : VisualizationResults = {}
 
     def process_frame(self, frame: np.ndarray) -> List[Block]:
         """Main entry: preprocess and detect blocks, while saving debug images."""
-        self._debug_images.clear()  # clear from previous frame
+        self._debug_images = {}
 
         # Save original frame
         self._debug_images['original'] = frame.copy()
@@ -56,7 +67,7 @@ class ColorBlockDetector:
 
         return blocks
 
-    def get_debug_images(self) -> dict:
+    def get_debug_images(self) -> VisualizationResults:
         """Returns debug images for visualization."""
         return self._debug_images
 

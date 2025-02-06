@@ -14,3 +14,4 @@ def compile(path : str):
 
 if __name__ == "__main__":
     compile("./main.py")
+    compile("./limelight.py")

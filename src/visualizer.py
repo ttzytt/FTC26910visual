@@ -1,7 +1,9 @@
 import cv2
 import numpy as np
+from typing import List, Dict, Optional, TypedDict
 from .color_def import *
 from .block import Block
+from .detector import VisualizationResults
 
 class BlockVisualizer:
     """
@@ -9,35 +11,55 @@ class BlockVisualizer:
       - Mode 0: Final detection only (single window)
       - Mode 1: Debug images (multiple windows, intermediate steps) + one additional window
                 showing each block region filled with its average HSV color.
+
+    Parameters:
+        show (bool): Whether to display images using OpenCV's cv2.imshow(). If False, functions return images.
     """
 
-    def __init__(self):
+    def __init__(self, show: bool = True):
         self.mode = 0
-        self.prev_mode = -1  # force initialization
+        self.prev_mode = -1  # Force initialization
         self.main_window = "Block Detection"
+        self.show = show  # Whether to display images or return them
 
     def toggle_mode(self):
-        # only two modes for now: 0 -> 1 -> 0 -> 1 ...
+        """Switch between mode 0 and mode 1."""
         self.mode = (self.mode + 1) % 2
 
-    def visualize(self, frame: np.ndarray, blocks: List[Block], debug_images: dict):
+    def visualize(self, frame: np.ndarray, blocks: List[Block], debug_images: VisualizationResults) -> Optional[VisualizationResults]:
         """
         Decide which visualization to show based on mode.
         Only destroy/recreate windows if the mode changed.
+
+        Parameters:
+            frame (np.ndarray): The original frame.
+            blocks (List[Block]): List of detected blocks.
+            debug_images (Dict[str, np.ndarray]): Dictionary of debug images.
+
+        Returns:
+            Optional[Dict[str, np.ndarray]]: If `self.show=False`, returns a dictionary of images.
         """
         if self.mode != self.prev_mode:
             cv2.destroyAllWindows()
             self.prev_mode = self.mode
 
-        if self.mode == 0:
-            # Show final detection
-            self.show_final_result(frame, blocks)
-        else:
-            # Show debug images + a window for average HSV fill
-            self.show_debug_images(debug_images)
-            self.show_avg_hsv_fill(frame, blocks)
+        results : VisualizationResults= {}
 
-    def show_final_result(self, frame: np.ndarray, blocks: List[Block]):
+        if self.mode == 0:
+            final_result = self.show_final_result(frame, blocks)
+            if not self.show:
+                results["Final_Detection"] = final_result
+        else:
+            debug_outputs = self.show_debug_images(debug_images)
+            avg_hsv_image = self.show_avg_hsv_fill(frame, blocks)
+
+            if not self.show:
+                for name, img in debug_outputs.items(): results[name] = img
+                results["Avg_HSV_Debug"] = avg_hsv_image
+
+        return results if not self.show else None
+
+    def show_final_result(self, frame: np.ndarray, blocks: List[Block]) -> np.ndarray:
         """Draw bounding boxes and put text for each block."""
         output = frame.copy()
         for block in blocks:
@@ -74,22 +96,33 @@ class BlockVisualizer:
             (0, 255, 0),
             2
         )
-        cv2.imshow(self.main_window, output)
 
-    def show_debug_images(self, debug_images: dict):
-        """Display intermediate debug images, each in its own window."""
+        if self.show:
+            cv2.imshow(self.main_window, output)
+        return output
+
+    def show_debug_images(self, debug_images: VisualizationResults) -> Dict[str, np.ndarray]:
+        """Display intermediate debug images, or return them if `self.show` is False."""
+        results = {}
         for name, img in debug_images.items():
-            if img is None:
+            if not isinstance(img, np.ndarray):
                 continue
             display = img.copy()
             cv2.putText(display, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                         1.0, (0, 255, 0), 2)
-            cv2.imshow(name, display)
 
-    def show_avg_hsv_fill(self, frame: np.ndarray, blocks: List[Block]):
+            if self.show:
+                cv2.imshow(name, display)
+            else:
+                results[name] = display
+
+        return results
+
+    def show_avg_hsv_fill(self, frame: np.ndarray, blocks: List[Block]) -> np.ndarray:
         """
         Create a black canvas the same size as 'frame', then fill each block's contour
-        with the block's average HSV color (converted to BGR). Show this in a new window.
+        with the block's average HSV color (converted to BGR). Show this in a new window
+        or return the processed image.
         """
         canvas = np.zeros_like(frame)  # black canvas
         for block in blocks:
@@ -113,4 +146,7 @@ class BlockVisualizer:
             (255, 255, 255),
             2
         )
-        cv2.imshow("Avg HSV Debug", canvas)
+
+        if self.show:
+            cv2.imshow("Avg HSV Debug", canvas)
+        return canvas
