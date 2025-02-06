@@ -18,7 +18,7 @@ class BlockVisualizer:
 
     def __init__(self, show: bool = True):
         self.mode = 0
-        self.prev_mode = -1  # Force initialization
+        self.prev_mode = 0  # Force initialization
         self.main_window = "Block Detection"
         self.show = show  # Whether to display images or return them
 
