@@ -24,7 +24,7 @@ class Block:
     color: Color
     color_std: Tuple[float, float, float] = (0.0, 0.0, 0.0)
     mean_hsv: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    contour: np.ndarray = field(default=None)  # store the absolute contour for visualization
+    contour: np.ndarray = field(default_factory=lambda: np.array([]))  # store the absolute contour for visualization
 
 
 # ---------- Global Color Definitions ----------
@@ -72,7 +72,7 @@ def compute_hue_std_flip(h_array: np.ndarray, flip_threshold: float = 90.0) -> f
     shifted[mask] += 180.0
     std2 = np.std(shifted)
     
-    return min(std1, std2)
+    return float(min(std1, std2))
 
 
 
@@ -91,7 +91,7 @@ class ColorBlockDetector:
         self.erode_iter = 7
         self.dilate_iter = 6
         self.min_contour_area = 1000
-        self.kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         
         # Tolerance margins for HSV
         self.color_margin = {
@@ -234,7 +234,7 @@ class ColorBlockDetector:
             # Create local mask (contour inside bounding box)
             contour_mask = np.zeros((h_int, w_int), dtype=np.uint8)
             shifted_cnt = cnt - [x_min, y_min]
-            cv2.drawContours(contour_mask, [shifted_cnt], 0, 255, -1)
+            cv2.drawContours(contour_mask, [shifted_cnt], 0, (255,), -1)
 
             # Extract HSV ROI
             hsv_roi = hsv[y_min:y_min + h_int, x_min:x_min + w_int]
@@ -242,9 +242,9 @@ class ColorBlockDetector:
 
             # Split channels and extract valid pixels
             h_ch, s_ch, v_ch = cv2.split(hsv_masked)
-            h_valid = h_ch[contour_mask == 255]
-            s_valid = s_ch[contour_mask == 255]
-            v_valid = v_ch[contour_mask == 255]
+            h_valid = h_ch[contour_mask == 255].astype(np.float32)
+            s_valid = s_ch[contour_mask == 255].astype(np.float32)
+            v_valid = v_ch[contour_mask == 255].astype(np.float32)
 
             if len(h_valid) == 0:
                 continue
@@ -315,9 +315,9 @@ class BlockVisualizer:
         """Draw bounding boxes and put text for each block."""
         output = frame.copy()
         for block in blocks:
-            box = cv2.boxPoints((block.center, block.size, block.angle))
-            box = np.int0(box)
-            cv2.drawContours(output, [box], 0, block.color.bgr, 2)
+            box = cv2.boxPoints((block.center, block.size, block.angle))  # type: ignore
+            box = np.intp(box)
+            cv2.drawContours(output, [box], 0, block.color.bgr, 2) # type: ignore
 
             # Text lines with extra info: avgH, avgS, avgV
             lines = [
@@ -367,8 +367,8 @@ class BlockVisualizer:
         canvas = np.zeros_like(frame)  # black canvas
         for block in blocks:
             # Convert mean_hsv -> BGR
-            hsv_pixel = np.uint8([[[block.mean_hsv[0], block.mean_hsv[1], block.mean_hsv[2]]]])
-            bgr_pixel = cv2.cvtColor(hsv_pixel, cv2.COLOR_HSV2BGR)
+            hsv_pixel = np.uint8([[[block.mean_hsv[0], block.mean_hsv[1], block.mean_hsv[2]]]]) # type: ignore
+            bgr_pixel = cv2.cvtColor(hsv_pixel, cv2.COLOR_HSV2BGR) # type: ignore
             avg_color = (int(bgr_pixel[0,0,0]), int(bgr_pixel[0,0,1]), int(bgr_pixel[0,0,2]))
 
             # Fill the contour with this color
