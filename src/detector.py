@@ -1,80 +1,7 @@
 import cv2
 import numpy as np
-from dataclasses import dataclass, field
-from typing import List, Tuple
-
-# ---------- Data Classes ----------
-
-hsv_t = Tuple[int, int, int]
-bgr_t = Tuple[int, int, int]
-
-@dataclass
-class Color:
-    """Stores color name, HSV ranges, and BGR values for drawing."""
-    name: str
-    hsv_ranges: List[Tuple[hsv_t, hsv_t]]
-    bgr: bgr_t
-
-@dataclass
-class Block:
-    """Represents a detected color block with position, size, angle, color info, and HSV stats."""
-    center: Tuple[float, float]
-    size: Tuple[float, float]
-    angle: float
-    color: Color
-    color_std: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    mean_hsv: Tuple[float, float, float] = (0.0, 0.0, 0.0)
-    contour: np.ndarray = field(default_factory=lambda: np.array([]))  # store the absolute contour for visualization
-
-
-# ---------- Global Color Definitions ----------
-
-RED = Color(
-    name='RED',
-    hsv_ranges=[
-        ((0, 80, 100), (10, 200, 255)),
-        ((160, 80, 100), (180, 200, 255))
-    ],
-    bgr=(0, 0, 255)
-)
-
-BLUE = Color(
-    name='BLUE',
-    hsv_ranges=[
-        ((105, 50, 100), (120, 200, 255))
-    ],
-    bgr=(255, 0, 0)
-)
-
-YELLOW = Color(
-    name='YELLOW',
-    hsv_ranges=[
-        ((20, 100, 100), (30, 255, 255))
-    ],
-    bgr=(0, 255, 255)
-)
-
-COLOR_DEFINITIONS = [RED, BLUE, YELLOW]
-
-
-# ---------- Color Block Detector ----------
-
-def compute_hue_std_flip(h_array: np.ndarray, flip_threshold: float = 90.0) -> float:
-    # Ensure float
-    h_float = h_array.astype(np.float32)
-    
-    # 1) Direct std
-    std1 = np.std(h_float)
-    
-    # 2) Flip
-    shifted = h_float.copy()
-    mask = (shifted < flip_threshold)
-    shifted[mask] += 180.0
-    std2 = np.std(shifted)
-    
-    return float(min(std1, std2))
-
-
+from .color_def import *
+from .block import Block
 
 class ColorBlockDetector:
     """
@@ -84,6 +11,7 @@ class ColorBlockDetector:
       3) Finding contours
       4) Computing mean & std(H, S, V) inside each contour
     """
+
     def __init__(self):
         # Basic image processing parameters
         self.blur_size = 35
@@ -92,7 +20,7 @@ class ColorBlockDetector:
         self.dilate_iter = 6
         self.min_contour_area = 1000
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        
+
         # Tolerance margins for HSV
         self.color_margin = {
             'H': 3,
@@ -119,7 +47,8 @@ class ColorBlockDetector:
 
         # 2) Convert to HSV
         hsv = cv2.cvtColor(preprocessed, cv2.COLOR_BGR2HSV)
-        hsv_bgr_like = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)  # just for visualization
+        hsv_bgr_like = cv2.cvtColor(
+            hsv, cv2.COLOR_HSV2BGR)  # just for visualization
         self._debug_images['hsv_space'] = hsv_bgr_like
 
         # 3) Detect blocks
@@ -170,7 +99,7 @@ class ColorBlockDetector:
         """
         # Step 1: Initialize an empty mask
         mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
-        
+
         # Step 2: Apply color thresholds for each HSV range
         for (lower, upper) in color_def.hsv_ranges:
             lower_margin = np.array([
@@ -178,13 +107,13 @@ class ColorBlockDetector:
                 max(0, lower[1] - self.color_margin['S']),
                 max(0, lower[2] - self.color_margin['V'])
             ], dtype=np.uint8)
-            
+
             upper_margin = np.array([
                 min(180, upper[0] + self.color_margin['H']),
                 min(255, upper[1] + self.color_margin['S']),
                 min(255, upper[2] + self.color_margin['V'])
             ], dtype=np.uint8)
-            
+
             # Apply threshold to get binary mask
             tmp_mask = cv2.inRange(hsv, lower_margin, upper_margin)
             mask = cv2.bitwise_or(mask, tmp_mask)
@@ -197,7 +126,8 @@ class ColorBlockDetector:
 
         # Step 4: Morphological operations (erode & dilate)
         mask_morph = cv2.erode(mask, self.kernel, iterations=self.erode_iter)
-        mask_morph = cv2.dilate(mask_morph, self.kernel, iterations=self.dilate_iter)
+        mask_morph = cv2.dilate(mask_morph, self.kernel,
+                                iterations=self.dilate_iter)
 
         # Step 5: For debug: morph mask in color
         morph_mask_colored = cv2.bitwise_and(hsv_bgr, hsv_bgr, mask=mask_morph)
@@ -208,7 +138,8 @@ class ColorBlockDetector:
 
     def _find_contours(self, mask: np.ndarray) -> List[np.ndarray]:
         """Find external contours with area > min_contour_area."""
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, _ = cv2.findContours(
+            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         return [c for c in contours if cv2.contourArea(c) > self.min_contour_area]
 
     def _process_contours(self,
@@ -262,7 +193,7 @@ class ColorBlockDetector:
             if std_h <= self.std_threshold_hsv[0] and \
                std_s <= self.std_threshold_hsv[1] and \
                std_v <= self.std_threshold_hsv[2]:
-                
+
                 block = Block(
                     center=(cx, cy),
                     size=(w, h),
@@ -270,146 +201,8 @@ class ColorBlockDetector:
                     color=color_def,
                     color_std=(std_h, std_s, std_v),
                     mean_hsv=(mean_h, mean_s, mean_v),
-                    contour=cnt  # store the original contour (absolute coordinates)
+                    # store the original contour (absolute coordinates)
+                    contour=cnt
                 )
                 blocks.append(block)
         return blocks
-
-
-# ---------- Block Visualizer ----------
-
-class BlockVisualizer:
-    """
-    Manages two modes:
-      - Mode 0: Final detection only (single window)
-      - Mode 1: Debug images (multiple windows, intermediate steps) + one additional window
-                showing each block region filled with its average HSV color.
-    """
-    def __init__(self):
-        self.mode = 0
-        self.prev_mode = -1  # force initialization
-        self.main_window = "Block Detection"
-
-    def toggle_mode(self):
-        # only two modes for now: 0 -> 1 -> 0 -> 1 ...
-        self.mode = (self.mode + 1) % 2
-
-    def visualize(self, frame: np.ndarray, blocks: List[Block], debug_images: dict):
-        """
-        Decide which visualization to show based on mode.
-        Only destroy/recreate windows if the mode changed.
-        """
-        if self.mode != self.prev_mode:
-            cv2.destroyAllWindows()
-            self.prev_mode = self.mode
-
-        if self.mode == 0:
-            # Show final detection
-            self.show_final_result(frame, blocks)
-        else:
-            # Show debug images + a window for average HSV fill
-            self.show_debug_images(debug_images)
-            self.show_avg_hsv_fill(frame, blocks)
-
-    def show_final_result(self, frame: np.ndarray, blocks: List[Block]):
-        """Draw bounding boxes and put text for each block."""
-        output = frame.copy()
-        for block in blocks:
-            box = cv2.boxPoints((block.center, block.size, block.angle))  # type: ignore
-            box = np.intp(box)
-            cv2.drawContours(output, [box], 0, block.color.bgr, 2) # type: ignore
-
-            # Text lines with extra info: avgH, avgS, avgV
-            lines = [
-                f"{block.color.name}: {block.angle:.1f} deg",
-                f"stdHSV=({block.color_std[0]:.1f}, {block.color_std[1]:.1f}, {block.color_std[2]:.1f})",
-                f"avgHSV=({block.mean_hsv[0]:.1f}, {block.mean_hsv[1]:.1f},{block.mean_hsv[2]:.1f})"
-            ]
-            x0, y0 = int(block.center[0]), int(block.center[1])
-            for i, line in enumerate(lines):
-                offset_y = i * 15
-                cv2.putText(
-                    output,
-                    line,
-                    (x0, y0 + offset_y),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (255, 255, 255),
-                    1
-                )
-
-        cv2.putText(
-            output,
-            "Final Detection",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (0, 255, 0),
-            2
-        )
-        cv2.imshow(self.main_window, output)
-
-    def show_debug_images(self, debug_images: dict):
-        """Display intermediate debug images, each in its own window."""
-        for name, img in debug_images.items():
-            if img is None:
-                continue
-            display = img.copy()
-            cv2.putText(display, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        1.0, (0, 255, 0), 2)
-            cv2.imshow(name, display)
-
-    def show_avg_hsv_fill(self, frame: np.ndarray, blocks: List[Block]):
-        """
-        Create a black canvas the same size as 'frame', then fill each block's contour
-        with the block's average HSV color (converted to BGR). Show this in a new window.
-        """
-        canvas = np.zeros_like(frame)  # black canvas
-        for block in blocks:
-            # Convert mean_hsv -> BGR
-            hsv_pixel = np.uint8([[[block.mean_hsv[0], block.mean_hsv[1], block.mean_hsv[2]]]]) # type: ignore
-            bgr_pixel = cv2.cvtColor(hsv_pixel, cv2.COLOR_HSV2BGR) # type: ignore
-            avg_color = (int(bgr_pixel[0,0,0]), int(bgr_pixel[0,0,1]), int(bgr_pixel[0,0,2]))
-
-            # Fill the contour with this color
-            cv2.drawContours(canvas, [block.contour], 0, avg_color, -1)
-
-        cv2.putText(
-            canvas,
-            "Blocks filled w/ average HSV",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (255, 255, 255),
-            2
-        )
-        cv2.imshow("Avg HSV Debug", canvas)
-
-
-# ---------- Main Loop ----------
-
-if __name__ == "__main__":
-    cap = cv2.VideoCapture(0)
-    detector = ColorBlockDetector()
-    visualizer = BlockVisualizer()
-
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-
-        blocks = detector.process_frame(frame)
-        debug_imgs = detector.get_debug_images()
-
-        # Visualize based on the current mode
-        visualizer.visualize(frame, blocks, debug_imgs)
-
-        key = cv2.waitKey(1) & 0xFF
-        if key == 27:  # ESC
-            break
-        elif key == ord('m'):
-            # Toggle modes (0 -> 1 -> 0 -> 1)
-            visualizer.toggle_mode()
-
-    cap.release()
-    cv2.destroyAllWindows()
