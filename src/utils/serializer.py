@@ -1,6 +1,24 @@
 import struct
 from typing import List
 
+import json
+import numpy as np
+from dataclasses import asdict, is_dataclass
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        # Handle dataclasses (recursively convert them to dictionaries)
+        if is_dataclass(obj) and not isinstance(obj, type):
+            return asdict(obj)
+        
+        # Convert NumPy arrays to lists
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        
+        # Let the base class default method raise the TypeError
+        return super().default(obj)
+
 
 def compress_8_bytes_to_double(byte_data: bytes) -> float:
     """

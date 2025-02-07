@@ -3,6 +3,7 @@ import numpy as np
 from src.color_def import *
 from src.detector import ColorBlockDetector
 from src.visualizer import BlockVisualizer
+from src.utils.serializer import *
 
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)

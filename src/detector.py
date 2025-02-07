@@ -32,13 +32,6 @@ class ColorBlockDetector:
         self.min_contour_area = 1000
         self.kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
-        # Tolerance margins for HSV
-        self.color_margin = {
-            'H': 3,
-            'S': 20,
-            'V': 150
-        }
-
         # Thresholds for std(H, S, V)
         self.std_threshold_hsv = (3, 50, 50)
 
@@ -113,20 +106,9 @@ class ColorBlockDetector:
 
         # Step 2: Apply color thresholds for each HSV range
         for (lower, upper) in color_def.hsv_ranges:
-            lower_margin = np.array([
-                max(0, lower[0] - self.color_margin['H']),
-                max(0, lower[1] - self.color_margin['S']),
-                max(0, lower[2] - self.color_margin['V'])
-            ], dtype=np.uint8)
-
-            upper_margin = np.array([
-                min(180, upper[0] + self.color_margin['H']),
-                min(255, upper[1] + self.color_margin['S']),
-                min(255, upper[2] + self.color_margin['V'])
-            ], dtype=np.uint8)
 
             # Apply threshold to get binary mask
-            tmp_mask = cv2.inRange(hsv, lower_margin, upper_margin)
+            tmp_mask = cv2.inRange(hsv, np.array(list(lower)), np.array(list(upper)))
             mask = cv2.bitwise_or(mask, tmp_mask)
 
         # Step 3: For debug: raw mask in color

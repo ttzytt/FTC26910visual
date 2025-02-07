@@ -1,6 +1,6 @@
 from src.detector import ColorBlockDetector
 from src.visualizer import BlockVisualizer
-from src.utils.double_encoder import *
+from utils.serializer import *
 import json
 
 def runPipeline(image, llrobot):
@@ -9,5 +9,6 @@ def runPipeline(image, llrobot):
 
     blocks = detector.process_frame(image)
     image = visualizer.visualize(image, blocks, detector.get_debug_images())
-
-    return [], image['Final_Detection'], [] # type: ignore
+    blocks_json = json.dumps([block.__dict__ for block in blocks], cls=NumpyEncoder)
+    encoded = string_to_doubles(blocks_json)
+    return [], image['Final_Detection'], encoded # type: ignore

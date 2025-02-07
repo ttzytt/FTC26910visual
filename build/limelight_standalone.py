@@ -41,13 +41,13 @@ with __stickytape_temporary_dir() as __stickytape_working_dir:
     __stickytape_write_module('src/utils/double_encoder.py', b'import struct\r\nfrom typing import List\r\n\r\n\r\ndef compress_8_bytes_to_double(byte_data: bytes) -> float:\r\n    """\r\n    Interpret 8 bytes as a double-precision floating point number.\r\n    \r\n    :param byte_data: A bytes object of length 8.\r\n    :return: The double-precision floating point number represented by these bytes.\r\n    :raises ValueError: If the input is not exactly 8 bytes long.\r\n    """\r\n    if len(byte_data) != 8:\r\n        raise ValueError("Input must be exactly 8 bytes long.")\r\n    return struct.unpack(\'d\', byte_data)[0]\r\n\r\n\r\ndef string_to_doubles(s: str) -> List[float]:\r\n    """\r\n    Convert a general string into a list of doubles, where each double\r\n    is simply an 8-byte representation of a chunk of the string.\r\n\r\n    Steps:\r\n      1. Encode the string to bytes (UTF-8 by default).\r\n      2. Split the bytes into 8-byte chunks.\r\n      3. If the last chunk is shorter than 8 bytes, pad with zeros.\r\n      4. Convert each chunk to a double.\r\n\r\n    :param s: The input string.\r\n    :return: A list of double-precision floats, each of which encodes 8 bytes\r\n             from the string.\r\n    """\r\n    # Encode string to bytes\r\n    s_bytes = s.encode(\'utf-8\')\r\n\r\n    doubles = []\r\n    # Process in 8-byte chunks\r\n    for i in range(0, len(s_bytes), 8):\r\n        chunk = s_bytes[i:i+8]\r\n        # Pad to 8 bytes if needed\r\n        if len(chunk) < 8:\r\n            chunk = chunk.ljust(8, b\'\\x00\')  # pad with zero bytes\r\n        # Convert the 8-byte chunk into a double\r\n        val = struct.unpack(\'d\', chunk)[0]\r\n        doubles.append(val)\r\n\r\n    return doubles\r\n\r\n\r\ndef doubles_to_string(doubles: List[float]) -> str:\r\n    raw_bytes = bytearray()\r\n    for d in doubles:\r\n        # pack the double back into 8 bytes\r\n        chunk = struct.pack(\'d\', d)\r\n        raw_bytes.extend(chunk)\r\n    # Now raw_bytes contains the original (possibly zero-padded) data,\r\n    # so we can decode it (strip zero padding if needed).\r\n    return raw_bytes.rstrip(b\'\\x00\').decode(\'utf-8\', errors=\'ignore\')\r\n')
     from src.detector import ColorBlockDetector
     from src.visualizer import BlockVisualizer
-    from src.utils.double_encoder import *
+    from utils.serializer import *
     import json
     
     def runPipeline(image, llrobot):
         detector = ColorBlockDetector()
         visualizer = BlockVisualizer(show=False)
-    
+        
         blocks = detector.process_frame(image)
         image = visualizer.visualize(image, blocks, detector.get_debug_images())
     
