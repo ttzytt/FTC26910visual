@@ -98,7 +98,7 @@ def generate_color_map(color_def: Color, fixed_v: int = 255) -> np.ndarray:
 def main():
     for color_def in COLOR_DEFINITIONS:
         color_map = generate_color_map(color_def, fixed_v=255)
-        filename = f"{color_def.name.lower()}_map.png"
+        filename = f"./output/{color_def.name.lower()}_map.png"
         cv2.imwrite(filename, color_map)
         print(f"Saved color map for {color_def.name} as '{filename}'")
 

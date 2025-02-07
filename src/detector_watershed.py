@@ -27,7 +27,7 @@ class ColorBlockDetectorWatershed(Detector):
 
     def __init__(self, detecting_colors):
         # Basic image processing parameters
-        self.blur_size = 35
+        self.blur_size = 50
         self.brightness = 0
         self.mask_erode_iter = 2
         self.mask_dilate_iter = 2
@@ -78,140 +78,125 @@ class ColorBlockDetectorWatershed(Detector):
 
     def _detect_blocks(self, hsv: np.ndarray, frame_bgr: np.ndarray) -> List[Block]:
         """
-        1) Combine all color masks into one total mask.
-        2) Perform morphological cleaning.
-        3) Call _watershed_segment => obtain markers.
-        4) For each segmented label:
-        - Compute color coverage.
-        - Assign the best matching color.
-        - Construct a Block instance.
+        Perform multiple watershed passes: one per color in self.detecting_colors.
+
+        Workflow for each color:
+        1) Create a color-specific mask.
+        2) Morphological cleaning.
+        3) _watershed_segment => obtains markers.
+        4) For each labeled region:
+            - Compute shape (minAreaRect)
+            - (Optionally) compute HSV stats
+            - Assign the color (since this pass is specific to one color)
+            - Construct a Block
+        Accumulate all blocks from each color and return.
         """
 
-        blocks: List[Block] = []
+        all_blocks: List[Block] = []
+        # For debugging, we can store intermediate images per color
+        # e.g. "blue_mask", "blue_sure_bg", etc.
+        self._debug_images = {}
 
-        # ========== A. Combine all color masks into a single "combined_mask" ==========
+        # Save original just once
+        self._debug_images['original'] = frame_bgr.copy()
 
-        combined_mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
+        # 1) Preprocess (optional brightness, blur)
+        preprocessed = self._preprocess(frame_bgr)
+        self._debug_images['preprocessed'] = preprocessed.copy()
 
-        # Dictionary to store individual color masks for color assignment later
-        color_masks = {}
+        # 2) Convert to HSV
+        hsv_img = cv2.cvtColor(preprocessed, cv2.COLOR_BGR2HSV)
 
+        # For each color, run its own Watershed pass
         for color_def in self.detecting_colors:
-            mask_color = self._create_color_mask(hsv, color_def)
-            combined_mask = cv2.bitwise_or(combined_mask, mask_color)
-            color_masks[color_def.name] = mask_color  # Store for coverage analysis
+            # A) Create color-specific mask
+            color_mask = self._create_color_mask(hsv_img, color_def)
+            # Optional morphological ops if not already inside _create_color_mask
+            color_mask = cv2.morphologyEx(
+                color_mask, cv2.MORPH_OPEN, self.kernel, iterations=2)
+            color_mask = cv2.morphologyEx(
+                color_mask, cv2.MORPH_CLOSE, self.kernel, iterations=2)
 
-        # Debugging: Store the combined mask visualization
-        self._debug_images['combined_mask'] = cv2.cvtColor(
-            combined_mask, cv2.COLOR_GRAY2BGR)
+            # Save debug mask
+            mask_bgr = cv2.cvtColor(color_mask, cv2.COLOR_GRAY2BGR)
+            self._debug_images[f"{color_def.name}_mask"] = mask_bgr
 
-        # ========== B. Morphological operations (Opening & Closing) for noise reduction ==========
+            # B) Watershed on this color mask
+            markers, num_labels, sure_bg, sure_fg, unknown = self._watershed_segment(
+                color_mask, frame_bgr)
 
-        mask_cleaned = cv2.morphologyEx(
-            combined_mask, cv2.MORPH_OPEN, self.kernel, iterations=2)
-        mask_cleaned = cv2.morphologyEx(
-            mask_cleaned, cv2.MORPH_CLOSE, self.kernel, iterations=2)
+            # Debug images for sure_bg, sure_fg, unknown
+            self._debug_images[f"{color_def.name}_sure_bg"] = cv2.cvtColor(
+                sure_bg, cv2.COLOR_GRAY2BGR)
+            self._debug_images[f"{color_def.name}_sure_fg"] = cv2.cvtColor(
+                sure_fg, cv2.COLOR_GRAY2BGR)
 
-        # ========== C. Apply Watershed Segmentation ==========
+            unknown_bgr = np.zeros_like(frame_bgr)
+            unknown_bgr[unknown == 255] = (128, 128, 128)
+            self._debug_images[f"{color_def.name}_unknown"] = unknown_bgr
 
-        markers, num_labels, sure_bg, sure_fg, unknown = self._watershed_segment(
-            mask_cleaned, frame_bgr)
+            # C) Build blocks from each label
+            h, w = color_mask.shape[:2]
+            for lbl in range(2, num_labels + 1):
+                region_mask = (markers == lbl)
+                region_area = np.count_nonzero(region_mask)
+                if region_area < self.min_area:
+                    continue
 
-        # Debugging: Save foreground, background, and unknown region visualizations
-        self._debug_images['sure_bg'] = cv2.cvtColor(sure_bg, cv2.COLOR_GRAY2BGR)
-        self._debug_images['sure_fg'] = cv2.cvtColor(sure_fg, cv2.COLOR_GRAY2BGR)
+                # extract coordinates
+                region_pts = np.argwhere(region_mask)
+                if len(region_pts) == 0:
+                    continue
 
-        unknown_bgr = np.zeros_like(frame_bgr)
-        unknown_bgr[unknown == 255] = (128, 128, 128)  # Gray for unknown region
-        self._debug_images['unknown'] = unknown_bgr
+                # minAreaRect
+                coords_xy = np.fliplr(region_pts).astype(np.float32)  # (x, y)
+                coords_xy_list = coords_xy[:, np.newaxis, :]
+                rect = cv2.minAreaRect(coords_xy_list)
+                (rx, ry), (rw, rh), angle = rect
+                if rw < rh:
+                    rw, rh = rh, rw
+                    angle += 90
 
+                # optional: compute HSV stats in that region
+                label_mask = np.zeros((h, w), dtype=np.uint8)
+                label_mask[region_mask] = 255
 
-        # ========== D. Iterate over detected labels, compute shape & assign color ==========
+                hsv_region = cv2.bitwise_and(hsv_img, hsv_img, mask=label_mask)
 
-        h, w = mask_cleaned.shape[:2]
-        for lbl in range(2, num_labels + 1):
-            # Extract the region corresponding to the current label
-            mask_region = (markers == lbl)
-            region_area = np.count_nonzero(mask_region)
+                # For mean
+                mean_hsv = cv2.mean(hsv_region, mask=label_mask)[:3]
 
-            # Skip if the region is too small
-            if region_area < self.min_area:
-                continue
+                # For std
+                h_ch, s_ch, v_ch = cv2.split(hsv_region)
+                h_valid = h_ch[label_mask == 255].astype(np.float32)
+                s_valid = s_ch[label_mask == 255].astype(np.float32)
+                v_valid = v_ch[label_mask == 255].astype(np.float32)
 
-            # Extract pixel coordinates belonging to this region
-            region_pts = np.argwhere(mask_region)  # (y, x) format
+                std_h = compute_hue_std_flip(h_valid)
+                std_s = float(np.std(s_valid))
+                std_v = float(np.std(v_valid))
 
-            if len(region_pts) == 0:
-                continue
+                # We can retrieve the contour for accurate shape
+                contours, _ = cv2.findContours(
+                    label_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if not contours:
+                    continue
+                largest_contour = max(contours, key=cv2.contourArea)
 
-            # Convert to (x, y) format
-            coords_xy = np.fliplr(region_pts).astype(np.float32)  # Swap x and y
+                # create Block
+                block = Block(
+                    center=(rx, ry),
+                    size=(rw, rh),
+                    angle=angle,
+                    color=color_def,  # since this pass is specifically for color_def
+                    mean_hsv=(mean_hsv[0], mean_hsv[1], mean_hsv[2]),
+                    color_std=(std_h, std_s, std_v),
+                    contour=largest_contour
+                )
+                all_blocks.append(block)
 
-            # Prepare for minimum area rectangle computation
-            coords_xy_list = coords_xy[:, np.newaxis, :]
-            rect = cv2.minAreaRect(coords_xy_list)  # Compute minimum bounding box
-            (rx, ry), (rw, rh), angle = rect
+        return all_blocks
 
-            # Ensure width is the larger dimension
-            if rw < rh:
-                rw, rh = rh, rw
-                angle += 90
-
-            # --- E. Compute color coverage to assign the best matching color ---
-
-            # Create a binary mask for the detected region (same size as the original image)
-            label_mask = np.zeros((h, w), dtype=np.uint8)
-            label_mask[mask_region] = 255
-
-            best_color: Color = self.detecting_colors[0]  # Default color
-            best_coverage = 0.0
-
-            for cdef in self.detecting_colors:
-                # Compute overlap between label_mask and each color mask
-                overlap_mask = cv2.bitwise_and(label_mask, color_masks[cdef.name])
-                overlap_area = np.count_nonzero(overlap_mask)
-
-                # Compute coverage ratio (how much of the region belongs to this color)
-                coverage_ratio = overlap_area / float(region_area)
-
-                # Select the color with the highest coverage
-                if coverage_ratio > best_coverage:
-                    best_coverage = coverage_ratio
-                    best_color = cdef
-
-            # --- F. Create Block object and append to results ---
-
-            hsv_region = cv2.bitwise_and(hsv, hsv, mask=label_mask)
-
-            mean_hsv = cv2.mean(hsv_region, mask=label_mask)[:3]
-            h_channel, s_channel, v_channel = cv2.split(hsv_region)
-
-            h_valid = h_channel[label_mask == 255].astype(np.float32)
-            s_valid = s_channel[label_mask == 255].astype(np.float32)
-            v_valid = v_channel[label_mask == 255].astype(np.float32)
-            
-            std_h = compute_hue_std_flip(h_valid, flip_threshold=90.0)
-            std_s = float(np.std(s_valid))
-            std_v = float(np.std(v_valid))
-
-            contours, _ = cv2.findContours(
-                label_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if not contours:
-                continue
-            largest_contour = max(contours, key=cv2.contourArea)
-
-            block = Block(
-                center=(rx, ry),
-                size=(rw, rh),
-                angle=angle,
-                color=best_color, 
-                mean_hsv=(mean_hsv[0], mean_hsv[1], mean_hsv[2]),
-                color_std=(std_h, std_s, std_v),
-                contour=largest_contour
-            )
-            blocks.append(block)
-
-        return blocks
 
 
     def _watershed_segment(self, mask: np.ndarray, frame_bgr: np.ndarray):

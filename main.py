@@ -3,6 +3,7 @@ import numpy as np
 from src.color_def import *
 from src.detector_contour import ColorBlockDetectorContour
 from src.detector_watershed import ColorBlockDetectorWatershed
+from src.detector_meanshift import ColorBlockDetectorMeanShift
 from src.visualizer import BlockVisualizer
 from src.utils.serializer import *
 # ---------- Global Color Definitions ----------
@@ -32,7 +33,7 @@ YELLOW = Color(
     bgr=(0, 255, 255)
 )
 
-COLOR_DEFINITIONS = [RED, BLUE, YELLOW]
+COLOR_DEFINITIONS = [BLUE]
 
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
