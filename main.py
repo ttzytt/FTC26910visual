@@ -17,6 +17,10 @@ if __name__ == "__main__":
 
         blocks = detector.process_frame(frame)
         debug_imgs = detector.get_debug_images()
+        blocks_json = json.dumps([block.__dict__ for block in blocks], cls=NumpyEncoder)
+        encoded = string_to_doubles(blocks_json)
+        decoded = doubles_to_string(encoded)
+        print (decoded)
 
         # Visualize based on the current mode
         visualizer.visualize(frame, blocks, debug_imgs)

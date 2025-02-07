@@ -30,7 +30,7 @@ def compress_8_bytes_to_double(byte_data: bytes) -> float:
     """
     if len(byte_data) != 8:
         raise ValueError("Input must be exactly 8 bytes long.")
-    return struct.unpack('d', byte_data)[0]
+    return struct.unpack('<d', byte_data)[0]
 
 
 def string_to_doubles(s: str) -> List[float]:
@@ -59,7 +59,7 @@ def string_to_doubles(s: str) -> List[float]:
         if len(chunk) < 8:
             chunk = chunk.ljust(8, b'\x00')  # pad with zero bytes
         # Convert the 8-byte chunk into a double
-        val = struct.unpack('d', chunk)[0]
+        val = struct.unpack('<d', chunk)[0]
         doubles.append(val)
 
     return doubles
@@ -69,7 +69,7 @@ def doubles_to_string(doubles: List[float]) -> str:
     raw_bytes = bytearray()
     for d in doubles:
         # pack the double back into 8 bytes
-        chunk = struct.pack('d', d)
+        chunk = struct.pack('<d', d)
         raw_bytes.extend(chunk)
     # Now raw_bytes contains the original (possibly zero-padded) data,
     # so we can decode it (strip zero padding if needed).
