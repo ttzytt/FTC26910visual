@@ -121,7 +121,7 @@ def extract_rotated_roi(image, center, size, angle):
 
 
 def main():
-    image_name = "limelight.png"
+    image_name = "r9000p_laptop.jpg"
     color_name = input(
         "Enter the color name of the block being measured: ").strip()
     image = cv2.imread(f"../../blk_imgs/{image_name}")
