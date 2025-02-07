@@ -141,23 +141,53 @@ def main():
     S = hsv_roi[:, :, 1].flatten()
     V = hsv_roi[:, :, 2].flatten()
 
-    # Calculate HSV ranges for various coverage levels.
-    color = Color(
-        name="Red",
-        hsv_ranges=[compute_hsv_ranges(H, S, V, c)
-                    for c in [0.7, 0.8, 0.9, 1.0]],
-        bgr=(0, 0, 255)  # Default red color for display
-    )
+    # Set lower bound, upper bound and interval for the coverage percentages.
+    # For example, lower=0.5, upper=1, interval=0.1 will generate: 0.5, 0.6, 0.7, 0.8, 0.9, 1.0.
+    coverage_lower = 0.5   # 50% coverage
+    coverage_upper = 1.0   # 100% coverage
+    coverage_interval = 0.1  # 10% step
 
-    # Print the computed ranges with coverage percentages.
-    coverage_labels = ["70%", "80%", "90%", "100%"]
-    print(f"Detected ranges for {color.name}:")
-    for i, ranges in enumerate(color.hsv_ranges):
-        print(f"{coverage_labels[i]} coverage:")
-        for j, (lower, upper) in enumerate(ranges):
-            print(f"  Range {j+1}:")
+    # Create an array of coverage values (e.g. 0.5, 0.6, 0.7, ..., 1.0)
+    coverage_levels = np.arange(
+        coverage_lower, coverage_upper + coverage_interval/2, coverage_interval)
+
+    # For each coverage level, compute the HSV ranges.
+    computed_hsv_ranges = []   # Will store tuples: (coverage, list_of_ranges)
+    for cov in coverage_levels:
+        ranges_for_cov = compute_hsv_ranges(H, S, V, cov)
+        computed_hsv_ranges.append((cov, ranges_for_cov))
+
+    # Print the computed ranges to the terminal.
+    print(f"Detected HSV ranges for {color_name}:")
+    for cov, ranges in computed_hsv_ranges:
+        # Compute the corresponding lower and upper percentiles for this coverage.
+        lower_percentile = (1 - cov) / 2 * 100
+        upper_percentile = 100 - lower_percentile
+        percentile_interval = upper_percentile - lower_percentile
+        print(f"Coverage: {cov*100:.0f}% "
+              f"(Percentiles: {lower_percentile:.1f}%-{upper_percentile:.1f}%, Interval: {percentile_interval:.1f}%)")
+        for idx, (lower, upper) in enumerate(ranges):
+            print(f"  Range {idx+1}:")
             print(f"    Lower: {lower}")
             print(f"    Upper: {upper}")
+
+    # Save the computed ranges and percentile settings to a CSV file.
+    import csv
+    img_no_format = image_name.split('.')[0]
+    csv_output_path = f"./output/{img_no_format}_{color_name}_hsv_ranges.csv"
+    with open(csv_output_path, mode='w', newline='') as csv_file:
+        writer = csv.writer(csv_file)
+        # Write header row.
+        writer.writerow(["Coverage", "LowerPercentile", "UpperPercentile", "PercentileInterval",
+                         "RangeNumber", "Hue Lower", "Hue Upper", "Sat Lower", "Sat Upper", "Val Lower", "Val Upper"])
+        for cov, ranges in computed_hsv_ranges:
+            lower_percentile = (1 - cov) / 2 * 100
+            upper_percentile = 100 - lower_percentile
+            percentile_interval = upper_percentile - lower_percentile
+            for idx, (lower, upper) in enumerate(ranges):
+                writer.writerow([f"{cov*100:.0f}%", lower_percentile, upper_percentile, percentile_interval,
+                                 idx+1, lower[0], upper[0], lower[1], upper[1], lower[2], upper[2]])
+    print(f"HSV ranges saved to CSV file: {csv_output_path}")
 
     # Plot histograms of the HSV distributions.
     fig, axs = plt.subplots(3, 1, figsize=(15, 12), dpi=300)
