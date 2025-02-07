@@ -17,7 +17,8 @@ def compute_hsv_ranges(h_values, s_values, v_values, coverage: float) -> List[Tu
     # Calculate percentiles accounting for circular Hue space
     lower_p = (1 - coverage) / 2 * 100
     upper_p = 100 - lower_p
-
+    lower_p = max(0, lower_p)
+    upper_p = min(100, upper_p)
     h_low = np.percentile(h_sorted, lower_p)
     h_high = np.percentile(h_sorted, upper_p)
 
@@ -143,13 +144,15 @@ def main():
 
     # Set lower bound, upper bound and interval for the coverage percentages.
     # For example, lower=0.5, upper=1, interval=0.1 will generate: 0.5, 0.6, 0.7, 0.8, 0.9, 1.0.
-    coverage_lower = 0.5   # 50% coverage
-    coverage_upper = 1.0   # 100% coverage
-    coverage_interval = 0.1  # 10% step
+    coverage_lower = 0.65  
+    coverage_upper = 1.0   
+    coverage_interval = 0.05  
 
     # Create an array of coverage values (e.g. 0.5, 0.6, 0.7, ..., 1.0)
     coverage_levels = np.arange(
         coverage_lower, coverage_upper + coverage_interval/2, coverage_interval)
+
+    print("coverage levels: ", coverage_levels)
 
     # For each coverage level, compute the HSV ranges.
     computed_hsv_ranges = []   # Will store tuples: (coverage, list_of_ranges)
