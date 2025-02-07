@@ -1,4 +1,6 @@
 from src.detector_contour import ColorBlockDetectorContour
+from src.detector_watershed import ColorBlockDetectorWatershed
+from src.detector_meanshift import ColorBlockDetectorMeanShift
 from src.visualizer import BlockVisualizer
 from src.utils.serializer import *
 from src.color_def import COLOR_DEF_LL
@@ -10,7 +12,7 @@ RET_DBL_ARR_SIZE = 32
 MAX_RET_BLK_CNT = int(RET_DBL_ARR_SIZE * 8 / sizeof(SerializedBlock))
 
 def runPipeline(image, llrobot):
-    detector = ColorBlockDetectorContour(COLOR_DEF_LL)
+    detector = ColorBlockDetectorWatershed(COLOR_DEF_LL)
     visualizer = BlockVisualizer(show=False)
 
     blocks = detector.process_frame(image)
@@ -26,4 +28,4 @@ def runPipeline(image, llrobot):
 
     serialized_blocks = serialize_to_doubles(blocks)
 
-    return [], image['Final_Detection'], serialized_blocks  # type: ignore
+    return [], image, serialized_blocks 

@@ -24,6 +24,9 @@ if __name__ == "__main__":
         # Visualize based on the current mode
         visualizer.visualize(frame, blocks, debug_imgs) # type: ignore
 
+        serialized_blocks = serialize_to_doubles(blocks)
+        print(serialized_blocks)
+
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # ESC
             break
