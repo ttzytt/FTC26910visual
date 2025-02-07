@@ -1,13 +1,13 @@
-from detector_contour import ColorBlockDetectorContour
+from src.detector_contour import ColorBlockDetectorContour
 from src.visualizer import BlockVisualizer
-from utils.serializer import *
+from src.utils.serializer import *
 from src.color_def import COLOR_DEF_LL
 from src.utils.serializer import *
 from ctypes import sizeof
 import cv2
 
 RET_DBL_ARR_SIZE = 32
-MAX_RET_BLK_CNT = RET_DBL_ARR_SIZE * 8 / sizeof(SerializedBlock)
+MAX_RET_BLK_CNT = int(RET_DBL_ARR_SIZE * 8 / sizeof(SerializedBlock))
 
 def runPipeline(image, llrobot):
     detector = ColorBlockDetectorContour(COLOR_DEF_LL)
