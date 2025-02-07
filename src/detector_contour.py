@@ -2,19 +2,20 @@ import cv2
 import numpy as np
 from .color_def import *
 from .block import Block
-from typing import List, TypedDict
+from typing import List
+from .detectors import *
 
-class VisualizationResults(TypedDict, total=False):
+
+class ContourVizResults(TypedDict, total=False):
     """Defines the structure of the dictionary returned by visualize()."""
-    Final_Detection: np.ndarray
-    Avg_HSV_Debug: np.ndarray
+    final_detection: np.ndarray
+    avg_HSV: np.ndarray
     original: np.ndarray
     preprocessed: np.ndarray
     hsv_space: np.ndarray
     combined_mask: np.ndarray
 
-
-class ColorBlockDetector:
+class ColorBlockDetectorContour(Detector):
     """
     Detects color blocks by:
       1) Preprocessing (brightness, blur)
@@ -23,7 +24,7 @@ class ColorBlockDetector:
       4) Computing mean & std(H, S, V) inside each contour
     """
 
-    def __init__(self):
+    def __init__(self, detecting_colors: List[Color]):
         # Basic image processing parameters
         self.blur_size = 35
         self.brightness = 0
@@ -36,7 +37,8 @@ class ColorBlockDetector:
         self.std_threshold_hsv = (3, 50, 50)
 
         # Storage for debug images (intermediate steps)
-        self._debug_images : VisualizationResults = {}
+        self._debug_images : ContourVizResults = {}
+        self.detecting_colors = detecting_colors
 
     def process_frame(self, frame: np.ndarray) -> List[Block]:
         """Main entry: preprocess and detect blocks, while saving debug images."""
@@ -60,7 +62,7 @@ class ColorBlockDetector:
 
         return blocks
 
-    def get_debug_images(self) -> VisualizationResults:
+    def get_debug_images(self) -> ContourVizResults:
         """Returns debug images for visualization."""
         return self._debug_images
 
@@ -76,7 +78,7 @@ class ColorBlockDetector:
         blocks = []
         combined_mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
 
-        for color_def in COLOR_DEFINITIONS:
+        for color_def in self.detecting_colors:
             mask = self._create_color_mask(hsv, color_def)
             combined_mask = cv2.bitwise_or(combined_mask, mask)
 

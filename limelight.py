@@ -1,10 +1,10 @@
-from src.detector import ColorBlockDetector
+from detector_contour import ColorBlockDetectorContour
 from src.visualizer import BlockVisualizer
 from utils.serializer import *
 import json
 
 def runPipeline(image, llrobot):
-    detector = ColorBlockDetector()
+    detector = ColorBlockDetectorContour()
     visualizer = BlockVisualizer(show=False)
 
     blocks = detector.process_frame(image)

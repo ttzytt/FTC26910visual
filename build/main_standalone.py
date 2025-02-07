@@ -42,13 +42,13 @@ with __stickytape_temporary_dir() as __stickytape_working_dir:
     import cv2
     import numpy as np
     from src.color_def import *
-    from src.detector import ColorBlockDetector
+    from detector_contour import ColorBlockDetectorContour
     from src.visualizer import BlockVisualizer
     from src.utils.serializer import *
     
     if __name__ == "__main__":
         cap = cv2.VideoCapture(0)
-        detector = ColorBlockDetector()
+        detector = ColorBlockDetectorContour()
         visualizer = BlockVisualizer()
     
         while True:

@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Dict, Optional, TypedDict
 from .color_def import *
 from .block import Block
-from .detector import VisualizationResults
+from .detectors import VizResults
 
 class BlockVisualizer:
     """
@@ -26,7 +26,7 @@ class BlockVisualizer:
         """Switch between mode 0 and mode 1."""
         self.mode = (self.mode + 1) % 2
 
-    def visualize(self, frame: np.ndarray, blocks: List[Block], debug_images: VisualizationResults) -> Optional[VisualizationResults]:
+    def visualize(self, frame: np.ndarray, blocks: List[Block], debug_images: VizResults) -> Optional[VizResults]:
         """
         Decide which visualization to show based on mode.
         Only destroy/recreate windows if the mode changed.
@@ -43,19 +43,19 @@ class BlockVisualizer:
             cv2.destroyAllWindows()
             self.prev_mode = self.mode
 
-        results : VisualizationResults= {}
+        results : VizResults= {}
 
         if self.mode == 0:
             final_result = self.show_final_result(frame, blocks)
             if not self.show:
-                results["Final_Detection"] = final_result
+                results['final_detection'] = final_result
         else:
             debug_outputs = self.show_debug_images(debug_images)
             avg_hsv_image = self.show_avg_hsv_fill(frame, blocks)
 
             if not self.show:
                 for name, img in debug_outputs.items(): results[name] = img
-                results["Avg_HSV_Debug"] = avg_hsv_image
+                results['avg_HSV'] = avg_hsv_image
 
         return results if not self.show else None
 
@@ -101,7 +101,7 @@ class BlockVisualizer:
             cv2.imshow(self.main_window, output)
         return output
 
-    def show_debug_images(self, debug_images: VisualizationResults) -> Dict[str, np.ndarray]:
+    def show_debug_images(self, debug_images: VizResults) -> Dict[str, np.ndarray]:
         """Display intermediate debug images, or return them if `self.show` is False."""
         results = {}
         for name, img in debug_images.items():

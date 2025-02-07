@@ -16,35 +16,6 @@ class Color:
     hsv_ranges: List[Tuple[hsv_t, hsv_t]]
     bgr: bgr_t
 
-# ---------- Global Color Definitions ----------
-
-RED = Color(
-    name='RED',
-    hsv_ranges=[
-        ((0, 80, 100), (10, 200, 255)),
-        ((160, 80, 100), (180, 200, 255))
-    ],
-    bgr=(0, 0, 255)
-)
-
-BLUE = Color(
-    name='BLUE',
-    hsv_ranges=[
-        ((105, 50, 100), (120, 200, 255))
-    ],
-    bgr=(255, 0, 0)
-)
-
-YELLOW = Color(
-    name='YELLOW',
-    hsv_ranges=[
-        ((20, 100, 100), (30, 255, 255))
-    ],
-    bgr=(0, 255, 255)
-)
-
-COLOR_DEFINITIONS = [RED, BLUE, YELLOW]
-
 
 # ---------- Color Block Detector ----------
 

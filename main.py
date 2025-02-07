@@ -1,13 +1,42 @@
 import cv2
 import numpy as np
 from src.color_def import *
-from src.detector import ColorBlockDetector
+from src.detector_contour import ColorBlockDetectorContour
+from src.detector_watershed import ColorBlockDetectorWatershed
 from src.visualizer import BlockVisualizer
 from src.utils.serializer import *
+# ---------- Global Color Definitions ----------
+
+RED = Color(
+    name='RED',
+    hsv_ranges=[
+        ((0, 50, 100), (10, 200, 255)),
+        ((160, 50, 100), (180, 200, 255))
+    ],
+    bgr=(0, 0, 255)
+)
+
+BLUE = Color(
+    name='BLUE',
+    hsv_ranges=[
+        ((100, 50, 50), (120, 255, 255))
+    ],
+    bgr=(255, 0, 0)
+)
+
+YELLOW = Color(
+    name='YELLOW',
+    hsv_ranges=[
+        ((20, 50, 100), (30, 255, 255))
+    ],
+    bgr=(0, 255, 255)
+)
+
+COLOR_DEFINITIONS = [RED, BLUE, YELLOW]
 
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
-    detector = ColorBlockDetector()
+    detector = ColorBlockDetectorWatershed(COLOR_DEFINITIONS)
     visualizer = BlockVisualizer()
 
     while True:
@@ -17,13 +46,9 @@ if __name__ == "__main__":
 
         blocks = detector.process_frame(frame)
         debug_imgs = detector.get_debug_images()
-        blocks_json = json.dumps([block.__dict__ for block in blocks], cls=NumpyEncoder)
-        encoded = string_to_doubles(blocks_json)
-        decoded = doubles_to_string(encoded)
-        print (decoded)
 
         # Visualize based on the current mode
-        visualizer.visualize(frame, blocks, debug_imgs)
+        visualizer.visualize(frame, blocks, debug_imgs) # type: ignore
 
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # ESC
