@@ -5,9 +5,7 @@ from typing import Tuple, List, Optional
 import os
 import sys
 import matplotlib.pyplot as plt  # Added for histogram plotting
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from color_def import hsv_t, Color
+from src.color_def import hsv_t, Color
 
 
 def compute_hsv_ranges(h_values, s_values, v_values, coverage: float) -> List[Tuple[hsv_t, hsv_t]]:

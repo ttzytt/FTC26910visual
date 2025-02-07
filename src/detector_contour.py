@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
-from .color_def import *
-from .block import Block
+from src.color_def import *
+from src.block import Block
 from typing import List
-from .detectors import *
+from src.detectors import *
 
 
 class ContourVizResults(TypedDict, total=False):

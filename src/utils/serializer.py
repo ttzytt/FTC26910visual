@@ -1,4 +1,4 @@
-from block import Block
+from src.block import Block
 from ctypes import Structure, c_int16, c_int32, c_float
 import struct
 from typing import Tuple, Optional, List

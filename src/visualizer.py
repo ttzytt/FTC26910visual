@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 from typing import List, Dict, Optional, TypedDict
-from .color_def import *
-from .block import Block
-from .detectors import VizResults
+from src.color_def import *
+from src.block import Block
+from src.detectors import VizResults
 
 class BlockVisualizer:
     """

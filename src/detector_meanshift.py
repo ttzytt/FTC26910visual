@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 from typing import List, TypedDict
-from .detectors import Detector
-from .color_def import Color, compute_hue_std_flip
-from .block import Block
+from src.detectors import Detector
+from src.color_def import Color, compute_hue_std_flip
+from src.block import Block
 
 
 class MeanShiftVizResults(TypedDict, total=False):

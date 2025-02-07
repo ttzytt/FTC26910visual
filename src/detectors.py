@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from .block import Block
+from src.block import Block
 from typing import List
 import numpy as np
 from typing import TypedDict, Dict 
