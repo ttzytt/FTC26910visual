@@ -86,3 +86,5 @@ BLUE_LL = Color(
     ],
     bgr=(255, 0, 0)
 )
+
+COLOR_DEF_LL = [RED_LL, YELLOW_LL, BLUE_LL]
