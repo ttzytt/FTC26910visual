@@ -26,6 +26,6 @@ def runPipeline(image, llrobot):
     if len(blocks) > MAX_RET_BLK_CNT:
         blocks = blocks[:MAX_RET_BLK_CNT]
 
-    serialized_blocks = serialize_to_doubles(blocks)
+    serialized_blocks = serialize_to_floats(blocks)
 
     return [], image, serialized_blocks 
