@@ -70,6 +70,6 @@ with __stickytape_temporary_dir() as __stickytape_working_dir:
         if len(blocks) > MAX_RET_BLK_CNT:
             blocks = blocks[:MAX_RET_BLK_CNT]
     
-        serialized_blocks = serialize_to_doubles(blocks)
+        serialized_blocks = serialize_to_floats(blocks)
     
         return [], image, serialized_blocks 
