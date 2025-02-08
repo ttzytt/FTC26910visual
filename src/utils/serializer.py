@@ -39,6 +39,10 @@ class SerializedBlock(Structure):
         assert len(raw_bytes) == 16, f"Expected 16 bytes, got {len(raw_bytes)}"
         f1, f2, f3, f4 = struct.unpack('<4f', raw_bytes)
         return f1, f2, f3, f4
+    
+    def serialize_to_float(self) -> List[float]:
+        """Directly serialize the 6 quantities to floats"""
+        return [float(num) for num in [self.center_x, self.center_y, self.width, self.height, self.angle, self.color]]
 
     @staticmethod
     def from_block(block: 'Block') -> 'SerializedBlock':
@@ -65,14 +69,25 @@ class SerializedBlock(Structure):
         """Creates a SerializedBlock from four floats."""
         raw_bytes = struct.pack('<4f', f1, f2, f3, f4)
         return cls.from_bytes(raw_bytes)
+    
+    @classmethod
+    def from_raw_floats(cls, fs: List[float]) -> 'SerializedBlock':
+        return SerializedBlock(
+            center_x=int(fs[0]),
+            center_y=int(fs[1]),
+            width=int(fs[2]),
+            height=int(fs[3]),
+            angle=fs[4],
+            color=int(fs[5]),
+        )
 
 def serialize_to_floats(blocks: List['Block']) -> List[float]:
     """Serializes a list of Blocks into a list of floats."""
     serialized_blocks = [SerializedBlock.from_block(block) for block in blocks]
-    return [f for serialized_block in serialized_blocks for f in serialized_block.pack_to_floats()]
+    return [0, 0] + [f for serialized_block in serialized_blocks for f in serialized_block.serialize_to_float()]
 
 def deserialize_from_floats(floats: List[float]) -> List[SerializedBlock]:
     """Deserializes a list of floats into a list of SerializedBlocks."""
     assert len(floats) % 4 == 0, f"Expected a multiple of 4 floats, got {len(floats)}"
-    serialized_blocks = [SerializedBlock.from_floats(floats[i], floats[i+1], floats[i+2], floats[i+3]) for i in range(0, len(floats), 4)]
+    serialized_blocks = [SerializedBlock.from_raw_floats(floats[i:i+6]) for i in range(2, len(floats), 6)]
     return serialized_blocks
