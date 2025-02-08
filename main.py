@@ -24,8 +24,11 @@ if __name__ == "__main__":
         # Visualize based on the current mode
         visualizer.visualize(frame, blocks, debug_imgs) # type: ignore
 
-        serialized_blocks = serialize_to_doubles(blocks)
+        serialized_blocks = serialize_to_floats(blocks)
         print(serialized_blocks)
+        deserailized_blocks = deserialize_from_floats(serialized_blocks)
+        for block in deserailized_blocks:
+            print(block)
 
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # ESC
