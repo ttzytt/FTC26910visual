@@ -8,11 +8,11 @@ from src.utils.serializer import *
 from ctypes import sizeof
 import cv2
 
-RET_DBL_ARR_SIZE = 32
-MAX_RET_BLK_CNT = int(RET_DBL_ARR_SIZE * 8 / sizeof(SerializedBlock))
+MAX_RET_BLK_CNT = 5
 
 def runPipeline(image, llrobot):
-    detector = ColorBlockDetectorWatershed(COLOR_DEF_LL)
+    # can change the algorithm with 3 options: contour, watershed, meanshift
+    detector = ColorBlockDetectorContour(COLOR_DEF_LL)
     visualizer = BlockVisualizer(show=False)
 
     blocks = detector.process_frame(image)
