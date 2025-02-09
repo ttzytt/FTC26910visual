@@ -1,0 +1,18 @@
+{
+    "sourceFile": "test/test_limelightlib.py",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1738978820941,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1738978820941,
+            "name": "Commit-0",
+            "content": "import limelight\nimport limelightresults\nimport json\nimport time\nfrom pprint import pprint\n\ndiscovered_limelights = limelight.discover_limelights(debug=True)\nprint(\"discovered limelights:\", discovered_limelights)\n\nif discovered_limelights:\n    limelight_address = discovered_limelights[0] \n    ll = limelight.Limelight(limelight_address)\n    results = ll.get_results()\n    status = ll.get_status()\n    print(\"-----\")\n    print(\"targeting results:\", results)\n    print(\"-----\")\n    print(\"status:\", status)\n    print(\"-----\")\n    print(\"temp:\", ll.get_temp())\n    print(\"-----\")\n    print(\"name:\", ll.get_name())\n    print(\"-----\")\n    print(\"fps:\", ll.get_fps())\n    print(\"-----\")\n    print(\"hwreport:\", ll.hw_report())\n\n    ll.enable_websocket()\n   \n    # print the current pipeline settings\n    print(ll.get_pipeline_atindex(0))\n\n    # update the current pipeline and flush to disk\n    pipeline_update = {\n    'area_max': 98.7,\n    'area_min': 1.98778\n    }\n    ll.update_pipeline(json.dumps(pipeline_update),flush=1)\n\n    print(ll.get_pipeline_atindex(0))\n\n    # switch to pipeline 1\n    ll.pipeline_switch(0)\n\n    # update custom user data\n    ll.update_python_inputs([4.2,0.1,9.87])\n    \n    \n    try:\n        while True:\n            result = ll.get_latest_results()\n            parsed_result = limelightresults.parse_results(result)\n            if parsed_result is not None:\n                print(\"valid targets: \", parsed_result.validity, \", pipelineIndex: \", parsed_result.pipeline_id,\", Targeting Latency: \", parsed_result.targeting_latency)\n                print(\"python result:\" + str(result['PythonOut']))\n                # pprint(result)\n                #for tag in parsed_result.fiducialResults:\n                #    print(tag.robot_pose_target_space, tag.fiducial_id)\n            time.sleep(1)  # Set this to 0 for max fps\n\n\n    except KeyboardInterrupt:\n        print(\"Program interrupted by user, shutting down.\")\n    finally:\n        ll.disable_websocket()\n"
+        }
+    ]
+}
