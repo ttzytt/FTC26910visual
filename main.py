@@ -1,16 +1,18 @@
 import cv2
 import numpy as np
-from src.color_def import *
-from src.detector_contour import ColorBlockDetectorContour
-from src.detector_watershed import ColorBlockDetectorWatershed
-from src.detector_meanshift import ColorBlockDetectorMeanShift
+from src.color_defs import *
+from src.color_detector import ColorDetector
+from src.watershed_detector import WatershedDetector
+from src.meanshift_detector import MeanshiftDetector
 from src.visualizer import BlockVisualizer
 from src.utils.serializer import *
+from src.preprocessor import *
 # ---------- Global Color Definitions ----------
 
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
-    detector = ColorBlockDetectorWatershed(COLOR_DEF_R9000P)
+    preproc_cfg = PreprocCfg(debug_steps=True)
+    detector = WatershedDetector(COLOR_DEF_R9000P, preproc_cfg, True)
     visualizer = BlockVisualizer()
 
     while True:
@@ -19,16 +21,10 @@ if __name__ == "__main__":
             break
 
         blocks = detector.process_frame(frame)
-        debug_imgs = detector.get_debug_images()
+        debug_imgs = detector.debug_images
 
         # Visualize based on the current mode
         visualizer.visualize(frame, blocks, debug_imgs) # type: ignore
-
-        serialized_blocks = serialize_to_floats(blocks)
-        print(serialized_blocks)
-        deserailized_blocks = deserialize_from_floats(serialized_blocks)
-        for block in deserailized_blocks:
-            print(block)
 
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # ESC

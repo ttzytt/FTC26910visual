@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass, field
-from .color_def import Color
+from src.color_defs import Color
 from typing import List, Tuple
 
 @dataclass

@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 from typing import List, TypedDict
-from src.detectors import Detector
-from src.color_def import Color, compute_hue_std_flip
+from src.detector import Detector
+from src.color_defs import Color, compute_hue_std_flip
 from src.block import Block
 
 
@@ -15,7 +15,7 @@ class MeanShiftVizResults(TypedDict, total=False):
     final_detection: np.ndarray
 
 
-class ColorBlockDetectorMeanShift(Detector):
+class MeanshiftDetector(Detector):
     """
     Detect color blocks by:
       1) Preprocessing (brightness, blur)

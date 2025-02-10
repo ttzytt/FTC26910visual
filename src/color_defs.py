@@ -1,13 +1,7 @@
-import cv2
 import numpy as np
 from dataclasses import dataclass, field
 from typing import List, Tuple
-
-# ---------- Data Classes ----------
-
-hsv_t = Tuple[int, int, int]
-bgr_t = Tuple[int, int, int]
-
+from src.type_defs import hsv_t, bgr_t
 
 @dataclass
 class Color:
