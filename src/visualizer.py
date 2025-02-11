@@ -7,8 +7,13 @@ from src.block import Block
 from src.type_defs import *
 from src.detector import Detector
 from src.preprocessor import PreprocType
-from .debug_controls import DebugControlWidget
-from PySide6.QtWidgets import QApplication
+from src.debug_controls import DebugControlWidget
+
+try:
+    from PySide6.QtWidgets import QApplication
+    PYQT_AVAILABLE = True
+except ImportError:
+    PYQT_AVAILABLE = False
 
 NOT_HEADLESS = hasattr(cv2, 'imshow')
 
@@ -25,19 +30,30 @@ class BlockVisualizer:
         self.show = show and NOT_HEADLESS
         self.detector = detector
 
-        # Initialize GUI components
-        self.qt_app = QApplication.instance() or QApplication([])
-        self.debug_controls = DebugControlWidget(detector.DebugType)
-        self.debug_controls.options_changed.connect(self._update_debug_options)
+        if PYQT_AVAILABLE:
+            # Initialize GUI components
+            self.qt_app = QApplication.instance() or QApplication([])
+            self.debug_controls = DebugControlWidget(detector.DebugType)
+            self.debug_controls.options_changed.connect(
+                self._update_debug_options)
 
-        # Initialize states
-        self._init_states()
-        self.active_windows = set()
-        
-        self.overlay_dbg_img_on_frame = True
-        self.overlay_alpha = 0.5
+            # Initialize states
+            self._init_states()
+            self.active_windows = set()
+
+            self.overlay_dbg_img_on_frame = True
+            self.overlay_alpha = 0.5
+        else:
+            self.qt_app = None
+            self.debug_controls = None
+            self.active_windows = set()
+            self.overlay_dbg_img_on_frame = False
+            self.overlay_alpha = 0.5
 
     def _init_states(self):
+        if not PYQT_AVAILABLE:
+            return
+
         # Detector states
         detector_states = {
             opt: opt in self.detector.debug_option
@@ -45,15 +61,20 @@ class BlockVisualizer:
         }
 
         # Preprocessor states
+        assert isinstance(self.detector.preproc.cfg.debug_steps, set)
         preproc_states = {
             step: step in self.detector.preproc.cfg.debug_steps
             for step in PreprocType
         }
 
+        assert self.debug_controls is not None
         self.debug_controls.set_states(detector_states, preproc_states)
 
     def toggle_mode(self):
         """Switch between mode 0 and mode 1."""
+        if not PYQT_AVAILABLE:
+            return
+        assert self.debug_controls is not None
         self.mode = (self.mode + 1) % 2
         if self.mode == 1:
             self.debug_controls.show()
@@ -65,7 +86,9 @@ class BlockVisualizer:
 
     def visualize(self, frame: np.ndarray, blocks: List[Block]) -> VizResults:
         """Main visualization processing"""
-        self.qt_app.processEvents()
+        if PYQT_AVAILABLE:
+            assert self.qt_app is not None
+            self.qt_app.processEvents()
 
         debug_images = self.detector.debug_images
 
@@ -76,39 +99,46 @@ class BlockVisualizer:
         if self._valid_image(final_result):
             results['final detection'] = final_result
 
-        # Handle debug mode
-        if self.mode == 1:
-            if self._valid_image(frame):
-                results['original'] = frame.copy()
-
-            debug_outputs = self.gen_debug_imgs(debug_images, frame)
-            results.update(debug_outputs)
-
-        # Update windows
-        if self.show:
-            current_windows = set(results.keys())
+        if PYQT_AVAILABLE:
+            # Handle debug mode
             if self.mode == 1:
-                current_windows.add("Debug Controls")
+                if self._valid_image(frame):
+                    results['original'] = frame.copy()
 
-            # Close unused windows
-            for win in self.active_windows - current_windows:
-                cv2.destroyWindow(win)
+                debug_outputs = self.gen_debug_imgs(debug_images, frame)
+                results.update(debug_outputs)
 
-            # Update OpenCV windows
-            for name, img in results.items():
-                if self._valid_image(img):
-                    cv2.imshow(name, img)
+            # Update windows
+            if self.show:
+                current_windows = set(results.keys())
+                if self.mode == 1:
+                    current_windows.add("Debug Controls")
 
-            self.active_windows = current_windows
+                # Close unused windows
+                for win in self.active_windows - current_windows:
+                    try:
+                        cv2.destroyWindow(win)
+                    except cv2.error:
+                        pass
+
+                # Update OpenCV windows
+                for name, img in results.items():
+                    if self._valid_image(img):
+                        cv2.imshow(name, img)
+
+                self.active_windows = current_windows
 
         return results
 
     def _update_debug_options(self):
         """Update detector with current GUI states"""
+        if not PYQT_AVAILABLE:
+            return
+        assert self.debug_controls is not None
         detector_states, preproc_states = self.debug_controls.get_states()
 
         # Update detector
-        self.detector.debug_option = [
+        self.detector.debug_option = [ # type: ignore
             opt for opt, enabled in detector_states.items() if enabled
         ]
 
@@ -129,7 +159,8 @@ class BlockVisualizer:
             img.shape[1] > 0
         )
 
-    def gen_final_result(self, frame: np.ndarray, blocks: List[Block]) -> np.ndarray:
+    @staticmethod
+    def gen_final_result(frame: np.ndarray, blocks: List[Block]) -> np.ndarray:
         """Draw bounding boxes and put text for each block."""
         output = frame.copy()
         for block in blocks:

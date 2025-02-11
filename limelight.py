@@ -13,10 +13,8 @@ MAX_RET_BLK_CNT = 5
 def runPipeline(image, llrobot):
     # can change the algorithm with 3 options: contour, watershed, meanshift
     detector = ColorDetector(COLOR_DEF_LL)
-    visualizer = BlockVisualizer(show=False)
-
     blocks = detector.process_frame(image)
-    image = visualizer.gen_final_result(image, blocks)
+    image = BlockVisualizer.gen_final_result(image, blocks)
 
     # sort the block by area, which can be calculated by contour
     blocks = sorted(blocks, key=lambda x: cv2.contourArea(x.contour), reverse=True)

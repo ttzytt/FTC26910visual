@@ -7,9 +7,6 @@ from src.detector import *
 from src.type_defs import *
 from enum import Enum
 
-class DebugType(Enum):
-    COLOR_MASK = "color_mask"
-    COMBINED_COLOR_MASK = "combined_color_mask"
 
 class ColorDetector(Detector):
     """
@@ -19,6 +16,9 @@ class ColorDetector(Detector):
       3) Finding contours
       4) Computing mean & std(H, S, V) inside each contour
     """
+    class DebugType(Enum):
+        COLOR_MASK = "color_mask"
+        COMBINED_COLOR_MASK = "combined_color_mask"
 
     def __init__(self, detecting_colors: List[Color], preproc_cfg: PreprocCfg = PreprocCfg(), debug_option : List[DebugType] | bool = []):
         # Basic image processing parameters
