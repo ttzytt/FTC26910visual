@@ -9,10 +9,6 @@ from src.block import Block
 # or wherever your PreprocCfg is defined
 from src.preprocessor import *
 
-# Example DebugType enum
-
-
-
 
 class WatershedDetector(Detector):
     """

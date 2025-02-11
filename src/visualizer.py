@@ -233,6 +233,9 @@ class BlockVisualizer:
             for name, img in results.items():
                 if name == 'final detection':
                     continue
+                # don't do it for preprocessed image
+                if name in [step.value for step in PreprocType]:
+                    continue
                 results[name] = cv2.addWeighted(frame, self.overlay_alpha, img, 1 - self.overlay_alpha, 0)
 
         return results

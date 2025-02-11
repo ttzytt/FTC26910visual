@@ -23,6 +23,8 @@ class Detector(ABC):
         if isinstance(debug_option, bool):
             debug_option = list(debug_type) if debug_option else []
         self.debug_option = debug_option
+        self.mask_dilate_iter = 3
+        self.mask_dilate_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
     @property
     @abstractmethod
@@ -38,8 +40,7 @@ class Detector(ABC):
         self.debug_images.update(self.preproc.debug_images)
         return ret
 
-    @staticmethod
-    def create_color_mask(frame_hsv: img_hsv_t, colors: List[Color] | Color) -> img_gray_t:
+    def create_color_mask(self, frame_hsv: img_hsv_t, colors: List[Color] | Color) -> img_gray_t:
         mask = np.zeros(frame_hsv.shape[:2], dtype=np.uint8)
         if isinstance(colors, Color):
             colors = [colors]
@@ -48,6 +49,7 @@ class Detector(ABC):
                 temp_mask = cv2.inRange(
                     frame_hsv, np.array(lower), np.array(upper))
                 mask = cv2.bitwise_or(mask, temp_mask)
+        mask = cv2.dilate(mask, self.mask_dilate_kernel, iterations=self.mask_dilate_iter)
         return mask
 
     def _merge_debug_imgs(self, prefix: str) -> img_bgr_t:

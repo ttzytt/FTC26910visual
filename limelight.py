@@ -6,13 +6,16 @@ from src.utils.serializer import *
 from color_defs import COLOR_DEF_LL
 from src.utils.serializer import *
 from ctypes import sizeof
+from src.preprocessor import *
 import cv2
 
 MAX_RET_BLK_CNT = 5
 
+preproc_cfg = PreprocCfg(debug_steps=False)
+detector = ColorDetector(COLOR_DEF_LL, preproc_cfg, False)
+
 def runPipeline(image, llrobot):
     # can change the algorithm with 3 options: contour, watershed, meanshift
-    detector = ColorDetector(COLOR_DEF_LL)
     blocks = detector.process_frame(image)
     image = BlockVisualizer.gen_final_result(image, blocks)
 
