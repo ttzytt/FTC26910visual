@@ -8,8 +8,8 @@ from src.type_defs import *
 from enum import Enum
 
 class DebugType(Enum):
-    SINGLE_COLOR_MASK = "single_color_mask"
-    COMBINED_MASK = "combined_mask"
+    COLOR_MASK = "color_mask"
+    COMBINED_COLOR_MASK = "combined_color_mask"
 
 class ColorDetector(Detector):
     """
@@ -46,17 +46,18 @@ class ColorDetector(Detector):
 
         for color_def in self.detecting_colors:
             mask = self.create_color_mask(hsv, color_def)
-            if DebugType.SINGLE_COLOR_MASK in self.debug_option:
-                self.debug_images[f'{color_def.name}_mask'] = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+            if DebugType.COLOR_MASK in self.debug_option:
+                mask_bgr = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+                mask_bgr[mask == 255] = color_def.bgr
+                self.debug_images[f'mask_{color_def.name}'] = mask_bgr
             combined_mask = cv2.bitwise_or(combined_mask, mask)
 
             contours = self._find_contours(mask)
             color_blocks = self._process_contours(contours, color_def, hsv)
             blocks.extend(color_blocks)
 
-        combined_bgr = cv2.cvtColor(combined_mask, cv2.COLOR_GRAY2BGR)
-        if DebugType.COMBINED_MASK in self.debug_option:
-            self.debug_images['combined_mask'] = combined_bgr
+        if DebugType.COMBINED_COLOR_MASK in self.debug_option:
+            self.debug_images['combined_mask'] = self._merge_debug_imgs('mask')
 
         return blocks
 

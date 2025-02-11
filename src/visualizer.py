@@ -1,66 +1,133 @@
+# -------------------- visualizer.py --------------------
 import cv2
 import numpy as np
-from typing import List, Dict, Optional, TypedDict
+from typing import List, Dict
 from src.color_defs import *
 from src.block import Block
 from src.type_defs import *
+from src.detector import Detector
+from src.preprocessor import PreprocType
+from .debug_controls import DebugControlWidget
+from PySide6.QtWidgets import QApplication
 
 NOT_HEADLESS = hasattr(cv2, 'imshow')
 
+
 class BlockVisualizer:
     """
-    Manages two modes:
-      - Mode 0: Final detection only (single window)
-      - Mode 1: Debug images (multiple windows, intermediate steps) + one additional window
-                showing each block region filled with its average HSV color.
-
-    Parameters:
-        show (bool): Whether to display images using OpenCV's cv2.imshow(). If False, functions return images.
+    Manages visualization modes with PySide6 debug controls
     """
 
-    def __init__(self, show: bool = True):
+    def __init__(self, detector: Detector, show: bool = True):
         self.mode = 0
-        self.prev_mode = 0  # Force initialization
+        self.prev_mode = 0
         self.main_window = "Block Detection"
         self.show = show and NOT_HEADLESS
+        self.detector = detector
+
+        # Initialize GUI components
+        self.qt_app = QApplication.instance() or QApplication([])
+        self.debug_controls = DebugControlWidget(detector.DebugType)
+        self.debug_controls.options_changed.connect(self._update_debug_options)
+
+        # Initialize states
+        self._init_states()
+        self.active_windows = set()
+        
+        self.overlay_dbg_img_on_frame = True
+        self.overlay_alpha = 0.5
+
+    def _init_states(self):
+        # Detector states
+        detector_states = {
+            opt: opt in self.detector.debug_option
+            for opt in self.detector.DebugType
+        }
+
+        # Preprocessor states
+        preproc_states = {
+            step: step in self.detector.preproc.cfg.debug_steps
+            for step in PreprocType
+        }
+
+        self.debug_controls.set_states(detector_states, preproc_states)
 
     def toggle_mode(self):
         """Switch between mode 0 and mode 1."""
         self.mode = (self.mode + 1) % 2
-
-    def visualize(self, frame: np.ndarray, blocks: List[Block], debug_images: VizResults) -> VizResults:
-        """
-        Decide which visualization to show based on mode.
-        Only destroy/recreate windows if the mode changed.
-
-        Parameters:
-            frame (np.ndarray): The original frame.
-            blocks (List[Block]): List of detected blocks.
-            debug_images (Dict[str, np.ndarray]): Dictionary of debug images.
-
-        Returns:
-            Optional[Dict[str, np.ndarray]]: If `self.show=False`, returns a dictionary of images.
-        """
-        if self.mode != self.prev_mode:
-            cv2.destroyAllWindows()
-            self.prev_mode = self.mode
-
-        results : VizResults= {}
-        final_result = self.gen_final_result(frame, blocks)
-        results['final etection'] = final_result
         if self.mode == 1:
-            # debug mode
-            results['original'] = frame.copy()
-            debug_outputs = self.gen_debug_imgs(debug_images)
-            avg_hsv_image = self.gen_avg_hsv_fill(frame, blocks)
+            self.debug_controls.show()
+        else:
+            self.debug_controls.hide()
 
-            for name, img in debug_outputs.items(): results[name] = img
-            results['avg HSV'] = avg_hsv_image
+        cv2.destroyAllWindows()
+        self.active_windows.clear()
 
+    def visualize(self, frame: np.ndarray, blocks: List[Block]) -> VizResults:
+        """Main visualization processing"""
+        self.qt_app.processEvents()
+
+        debug_images = self.detector.debug_images
+
+        results: VizResults = {}
+
+        # Generate final result
+        final_result = self.gen_final_result(frame, blocks)
+        if self._valid_image(final_result):
+            results['final detection'] = final_result
+
+        # Handle debug mode
+        if self.mode == 1:
+            if self._valid_image(frame):
+                results['original'] = frame.copy()
+
+            debug_outputs = self.gen_debug_imgs(debug_images, frame)
+            results.update(debug_outputs)
+
+        # Update windows
         if self.show:
+            current_windows = set(results.keys())
+            if self.mode == 1:
+                current_windows.add("Debug Controls")
+
+            # Close unused windows
+            for win in self.active_windows - current_windows:
+                cv2.destroyWindow(win)
+
+            # Update OpenCV windows
             for name, img in results.items():
-                cv2.imshow(name, img)
-        return results 
+                if self._valid_image(img):
+                    cv2.imshow(name, img)
+
+            self.active_windows = current_windows
+
+        return results
+
+    def _update_debug_options(self):
+        """Update detector with current GUI states"""
+        detector_states, preproc_states = self.debug_controls.get_states()
+
+        # Update detector
+        self.detector.debug_option = [
+            opt for opt, enabled in detector_states.items() if enabled
+        ]
+
+        # Update preprocessor
+        self.detector.preproc.cfg.debug_steps = {
+            step for step, enabled in preproc_states.items() if enabled
+        }
+
+        print(f"Detector: {self.detector.debug_option}")
+        print(f"Preprocessor: {self.detector.preproc.cfg.debug_steps}")
+
+    def _valid_image(self, img: np.ndarray) -> bool:
+        """Validate image dimensions"""
+        return (
+            isinstance(img, np.ndarray) and
+            img.size > 0 and
+            img.shape[0] > 0 and
+            img.shape[1] > 0
+        )
 
     def gen_final_result(self, frame: np.ndarray, blocks: List[Block]) -> np.ndarray:
         """Draw bounding boxes and put text for each block."""
@@ -69,7 +136,8 @@ class BlockVisualizer:
             box = cv2.boxPoints(
                 (block.center, block.size, block.angle))  # type: ignore
             box = np.intp(box)
-            cv2.drawContours(output, [box], 0, block.color.bgr, 2)  # type: ignore
+            cv2.drawContours(output, [box], 0,
+                             block.color.bgr, 2)  # type: ignore
 
             # Text lines with extra info: avgH, avgS, avgV
             lines = [
@@ -102,47 +170,38 @@ class BlockVisualizer:
 
         return output
 
-    def gen_debug_imgs(self, debug_images: VizResults) -> Dict[str, np.ndarray]:
-        """Display intermediate debug images, or return them if `self.show` is False."""
+    def gen_debug_imgs(self, debug_images: VizResults, frame : img_t) -> Dict[str, np.ndarray]:
+        """
+        Only display debug images for which the corresponding checkbox is selected.
+        For each debug image, if its name does not start with any of the selected keys
+        (and if it has a color suffix, the suffix is separated by an underscore), 
+        then the corresponding window is destroyed.
+        """
         results = {}
+        selected_keys = {opt.value for opt in self.detector.debug_option}
+        assert isinstance(self.detector.preproc.cfg.debug_steps, set)
+        selected_keys.update({step.value for step in self.detector.preproc.cfg.debug_steps})
         for name, img in debug_images.items():
-            if not isinstance(img, np.ndarray):
+            selected = False
+            for key in selected_keys:
+                # Check if the debug image name is exactly the key or starts with "key_"
+                if name == key or name.startswith(f"{key}_"):
+                    selected = True
+                    break
+    
+            if not selected:
                 continue
-            display = img.copy()
-            cv2.putText(display, name, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                        1.0, (0, 255, 0), 2)
-            
-            results[name] = display
+    
+            if self._valid_image(img):
+                display = img.copy()
+                cv2.putText(display, name, (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+                results[name] = display
+    
+        if self.overlay_dbg_img_on_frame:
+            for name, img in results.items():
+                if name == 'final detection':
+                    continue
+                results[name] = cv2.addWeighted(frame, self.overlay_alpha, img, 1 - self.overlay_alpha, 0)
 
         return results
-
-    def gen_avg_hsv_fill(self, frame: np.ndarray, blocks: List[Block]) -> np.ndarray:
-        """
-        Create a black canvas the same size as 'frame', then fill each block's contour
-        with the block's average HSV color (converted to BGR). Show this in a new window
-        or return the processed image.
-        """
-        canvas = np.zeros_like(frame)  # black canvas
-        for block in blocks:
-            # Convert mean_hsv -> BGR
-            hsv_pixel = np.uint8(
-                [[[block.mean_hsv[0], block.mean_hsv[1], block.mean_hsv[2]]]])  # type: ignore
-            bgr_pixel = cv2.cvtColor(
-                hsv_pixel, cv2.COLOR_HSV2BGR)  # type: ignore
-            avg_color = (int(bgr_pixel[0, 0, 0]), int(
-                bgr_pixel[0, 0, 1]), int(bgr_pixel[0, 0, 2]))
-
-            # Fill the contour with this color
-            cv2.drawContours(canvas, [block.contour], 0, avg_color, -1)
-
-        cv2.putText(
-            canvas,
-            "Blocks filled w/ average HSV",
-            (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (255, 255, 255),
-            2
-        )
-
-        return canvas

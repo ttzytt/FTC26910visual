@@ -47,7 +47,7 @@ class PreprocCfg:
     median_kernel_size: int = 5
 
     bilateral_d: int = 11
-    bilateral_sigma_color: int = 100
+    bilateral_sigma_color: int = 200
     bilateral_sigma_space: int = 20
 
     guided_radius: int = 5
@@ -70,11 +70,11 @@ class Preproc:
     def __init__(self, cfg: PreprocCfg):
         self.cfg = cfg
         self.debug_images: VizResults = {}  # Store intermediate debug results
-
         # Check if any debug step is specified but not present in the preprocess_steps
+
         if isinstance(self.cfg.debug_steps, bool):
             if self.cfg.debug_steps:
-                self.cfg.debug_steps = {step for step in PreprocType}
+                self.cfg.debug_steps = {step for step in self.cfg.preprocess_steps}
             else: self.cfg.debug_steps = set()
             # if true then add all steps to debug_steps
             return

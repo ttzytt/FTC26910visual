@@ -7,10 +7,10 @@ from src.type_defs import *
 from src.color_defs import *
 from src.preprocessor import *
 
+EnumSub = TypeVar('EnumSub', bound=Enum)
 
 class Detector(ABC):
 
-    EnumSub = TypeVar('EnumSub', bound=Enum)
 
     def __init__(self, detecting_colors: List[Color], 
                 preproc_cfg: PreprocCfg, 
@@ -20,11 +20,14 @@ class Detector(ABC):
         self.preproc = Preproc(self.preproc_cfg)
         self.detecting_colors = detecting_colors
         self.debug_images: VizResults = {}
-        print(debug_option)
         if isinstance(debug_option, bool):
             debug_option = list(debug_type) if debug_option else []
-        print(debug_option)
         self.debug_option = debug_option
+
+    @property
+    @abstractmethod
+    def DebugType(self) -> Type[EnumSub]:
+        pass
 
     @abstractmethod
     def process_frame(self, frame: img_bgr_t) -> List[Block]:
@@ -32,8 +35,7 @@ class Detector(ABC):
 
     def _preprocess(self, frame: img_bgr_t) -> img_bgr_t:
         ret = self.preproc.process(frame)
-        for name, img in self.preproc.debug_images.items():
-            self.debug_images[name] = np.array(img, dtype=np.uint8)
+        self.debug_images.update(self.preproc.debug_images)
         return ret
 
     @staticmethod
@@ -47,3 +49,22 @@ class Detector(ABC):
                     frame_hsv, np.array(lower), np.array(upper))
                 mask = cv2.bitwise_or(mask, temp_mask)
         return mask
+
+    def _merge_debug_imgs(self, prefix: str) -> img_bgr_t:
+        """
+        Merge debug images with the given prefix according to order of `self.detecting_colors`
+        Later images have higher priority
+        """
+        ret = None
+        for color in self.detecting_colors:
+            img_name = f"{prefix}_{color.name}"
+            if img_name not in self.debug_images:
+                continue
+            img = self.debug_images[img_name]
+            if ret is None:
+                ret = np.zeros_like(img)
+            # Create a mask where the current image is not black (i.e., has color)
+            mask = np.any(img > 0, axis=-1)
+            ret[mask > 0] = img[mask > 0]
+        assert ret is not None, f"No debug images found with prefix {prefix}"
+        return ret

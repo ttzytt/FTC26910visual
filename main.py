@@ -12,8 +12,8 @@ from src.preprocessor import *
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
     preproc_cfg = PreprocCfg(debug_steps=True)
-    detector = WatershedDetector(COLOR_DEF_R9000P, preproc_cfg, True)
-    visualizer = BlockVisualizer()
+    detector = WatershedDetector(COLOR_DEF_R9000P, preproc_cfg, False)
+    visualizer = BlockVisualizer(detector)
 
     while True:
         ret, frame = cap.read()
@@ -24,13 +24,14 @@ if __name__ == "__main__":
         debug_imgs = detector.debug_images
 
         # Visualize based on the current mode
-        visualizer.visualize(frame, blocks, debug_imgs) # type: ignore
+        visualizer.visualize(frame, blocks) # type: ignore
 
         key = cv2.waitKey(1) & 0xFF
         if key == 27:  # ESC
             break
         elif key == ord('m'):
             # Toggle modes (0 -> 1 -> 0 -> 1)
+            print("Toggle mode")
             visualizer.toggle_mode()
 
     cap.release()
